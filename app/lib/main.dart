@@ -1,448 +1,487 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 void main() {
-  runApp(const NexaForgeApp());
+  runApp(const NexaStopwatchApp());
 }
 
-class NexaForgeApp extends StatelessWidget {
-  const NexaForgeApp({super.key});
+class NexaStopwatchApp extends StatelessWidget {
+  const NexaStopwatchApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'NexaCalc',
+      title: 'NexaStopwatch',
       theme: ThemeData.dark().copyWith(
-        scaffoldBackgroundColor: const Color(0xFF0D0E15),
+        scaffoldBackgroundColor: const Color(0xFF0B0C10),
         colorScheme: const ColorScheme.dark(
           primary: Color(0xFF00E5FF),
-          secondary: Color(0xFFFF3D00),
-          surface: Color(0xFF161823),
+          secondary: Color(0xFFFF0055),
+          surface: Color(0xFF1F2833),
         ),
       ),
-      home: const CalculatorScreen(),
+      home: const StopwatchScreen(),
     );
   }
 }
 
-class CalculationItem {
-  final String expression;
-  final String result;
+class LapItem {
+  final int lapNumber;
+  final Duration lapTime;
+  final Duration totalTime;
 
-  CalculationItem({required this.expression, required this.result});
+  LapItem({
+    required this.lapNumber,
+    required this.lapTime,
+    required this.totalTime,
+  });
 }
 
-class CalculatorScreen extends StatefulWidget {
-  const CalculatorScreen({super.key});
+class StopwatchScreen extends StatefulWidget {
+  const StopwatchScreen({super.key});
 
   @override
-  State<CalculatorScreen> createState() => _CalculatorScreenState();
+  State<StopwatchScreen> createState() => _StopwatchScreenState();
 }
 
-class _CalculatorScreenState extends State<CalculatorScreen> {
-  String _expression = '';
-  String _result = '0';
-  final List<CalculationItem> _history = [];
-  bool _isEvaluated = false;
+class _StopwatchScreenState extends State<StopwatchScreen> {
+  final Stopwatch _stopwatch = Stopwatch();
+  Timer? _timer;
+  final List<LapItem> _laps = [];
+  Duration _lastLapTotalTime = Duration.zero;
 
-  void _onButtonPressed(String label) {
-    HapticFeedback.lightImpact();
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
 
-    setState(() {
-      if (label == 'AC') {
-        _expression = '';
-        _result = '0';
-        _isEvaluated = false;
-        return;
+  void _startTimer() {
+    _timer = Timer.periodic(const Duration(milliseconds: 30), (timer) {
+      if (mounted) {
+        setState(() {});
       }
-
-      if (label == '⌫') {
-        if (_isEvaluated) {
-          _expression = '';
-          _result = '0';
-          _isEvaluated = false;
-          return;
-        }
-        if (_expression.isNotEmpty) {
-          _expression = _expression.substring(0, _expression.length - 1);
-          _calculateLiveResult();
-        }
-        return;
-      }
-
-      if (label == '=') {
-        if (_expression.isEmpty) return;
-        _calculateFinalResult();
-        return;
-      }
-
-      if (_isEvaluated) {
-        if (_isOperator(label)) {
-          _expression = _result + label;
-        } else {
-          _expression = label;
-        }
-        _isEvaluated = false;
-        _calculateLiveResult();
-        return;
-      }
-
-      // Handle duplicate operators or leading operators
-      if (_isOperator(label)) {
-        if (_expression.isEmpty) {
-          if (label == '-') {
-            _expression = label;
-          }
-          return;
-        }
-        String lastChar = _expression[_expression.length - 1];
-        if (_isOperator(lastChar)) {
-          _expression = _expression.substring(0, _expression.length - 1) + label;
-          return;
-        }
-      }
-
-      // Handle percentage
-      if (label == '%') {
-        _handlePercentage();
-        return;
-      }
-
-      // Handle plus/minus toggle
-      if (label == '+/-') {
-        _handlePlusMinus();
-        return;
-      }
-
-      _expression += label;
-      _calculateLiveResult();
     });
   }
 
-  bool _isOperator(String label) {
-    return label == '+' || label == '-' || label == '×' || label == '÷';
-  }
-
-  void _handlePercentage() {
-    if (_expression.isEmpty) return;
-    try {
-      double val = _evaluateMath(_expression);
-      double res = val / 100.0;
-      _result = _formatResult(res);
-      _expression = _result;
-      _isEvaluated = true;
-    } catch (_) {}
-  }
-
-  void _handlePlusMinus() {
-    if (_expression.isEmpty) return;
-    if (_expression.startsWith('-')) {
-      _expression = _expression.substring(1);
-    } else {
-      _expression = '-$_expression';
-    }
-    _calculateLiveResult();
-  }
-
-  void _calculateLiveResult() {
-    if (_expression.isEmpty) {
-      _result = '0';
-      return;
-    }
-    try {
-      // Evaluate only if expression ends with number
-      String last = _expression[_expression.length - 1];
-      if (!_isOperator(last) && last != '.') {
-        double val = _evaluateMath(_expression);
-        _result = _formatResult(val);
-      }
-    } catch (_) {
-      // Ignore intermediate syntax errors
-    }
-  }
-
-  void _calculateFinalResult() {
-    try {
-      double val = _evaluateMath(_expression);
-      String formattedResult = _formatResult(val);
-      _history.insert(
-        0,
-        CalculationItem(expression: _expression, result: formattedResult),
-      );
-      _result = formattedResult;
-      _isEvaluated = true;
-    } catch (_) {
-      _result = 'Error';
-    }
-  }
-
-  String _formatResult(double value) {
-    if (value.isNaN || value.isInfinite) return 'Error';
-    if (value == value.roundToDouble()) {
-      return value.toInt().toString();
-    }
-    String str = value.toStringAsFixed(6);
-    // Trim trailing zeros
-    str = str.replaceAll(RegExp(r'0+$'), '');
-    str = str.replaceAll(RegExp(r'\.$'), '');
-    return str;
-  }
-
-  double _evaluateMath(String expr) {
-    String sanitized = expr.replaceAll('×', '*').replaceAll('÷', '/');
-    List<String> tokens = _tokenize(sanitized);
-    return _parseTokens(tokens);
-  }
-
-  List<String> _tokenize(String expr) {
-    List<String> tokens = [];
-    String numberBuffer = '';
-    for (int i = 0; i < expr.length; i++) {
-      String char = expr[i];
-      if ('0123456789.'.contains(char)) {
-        numberBuffer += char;
-      } else if ('+-*/'.contains(char)) {
-        if (numberBuffer.isNotEmpty) {
-          tokens.add(numberBuffer);
-          numberBuffer = '';
-        }
-        if (char == '-' && (tokens.isEmpty || '+-*/'.contains(tokens.last))) {
-          numberBuffer += '-';
-        } else {
-          tokens.add(char);
-        }
-      }
-    }
-    if (numberBuffer.isNotEmpty) {
-      tokens.add(numberBuffer);
-    }
-    return tokens;
-  }
-
-  double _parseTokens(List<String> tokens) {
-    if (tokens.isEmpty) return 0;
-
-    // First pass: Multiplication and Division
-    List<String> pass1 = [];
-    int i = 0;
-    while (i < tokens.length) {
-      if (tokens[i] == '*' || tokens[i] == '/') {
-        if (pass1.isEmpty || i + 1 >= tokens.length) throw Exception();
-        String op = tokens[i];
-        double prev = double.parse(pass1.removeLast());
-        double next = double.parse(tokens[i + 1]);
-        double res = op == '*' ? prev * next : prev / next;
-        pass1.add(res.toString());
-        i += 2;
+  void _toggleStartPause() {
+    HapticFeedback.mediumImpact();
+    setState(() {
+      if (_stopwatch.isRunning) {
+        _stopwatch.stop();
+        _timer?.cancel();
       } else {
-        pass1.add(tokens[i]);
-        i++;
+        _stopwatch.start();
+        _startTimer();
       }
-    }
-
-    // Second pass: Addition and Subtraction
-    if (pass1.isEmpty) return 0;
-    double result = double.parse(pass1[0]);
-    int j = 1;
-    while (j < pass1.length) {
-      if (j + 1 >= pass1.length) break;
-      String op = pass1[j];
-      double next = double.parse(pass1[j + 1]);
-      if (op == '+') result += next;
-      if (op == '-') result -= next;
-      j += 2;
-    }
-    return result;
+    });
   }
 
-  void _showHistoryModal() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: const Color(0xFF161823),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-      ),
-      builder: (context) {
-        return Container(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text(
-                    'Calculation History',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
-                  ),
-                  if (_history.isNotEmpty)
-                    IconButton(
-                      icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
-                      onPressed: () {
-                        setState(() => _history.clear());
-                        Navigator.pop(context);
-                      },
-                    ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              Expanded(
-                child: _history.isEmpty
-                    ? const Center(
-                        child: Text(
-                          'No history yet',
-                          style: TextStyle(color: Colors.white38, fontSize: 16),
-                        ),
-                      )
-                    : ListView.separated(
-                        itemCount: _history.length,
-                        separatorBuilder: (_, __) => const Divider(color: Colors.white10),
-                        itemBuilder: (context, index) {
-                          final item = _history[index];
-                          return ListTile(
-                            contentPadding: EdgeInsets.zero,
-                            title: Text(
-                              item.expression,
-                              textAlign: TextAlign.right,
-                              style: const TextStyle(
-                                color: Colors.white54,
-                                fontSize: 16,
-                              ),
-                            ),
-                            subtitle: Text(
-                              '= ${item.result}',
-                              textAlign: TextAlign.right,
-                              style: const TextStyle(
-                                color: Color(0xFF00E5FF),
-                                fontSize: 22,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            onTap: () {
-                              setState(() {
-                                _expression = item.expression;
-                                _result = item.result;
-                                _isEvaluated = true;
-                              });
-                              Navigator.pop(context);
-                            },
-                          );
-                        },
-                      ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
+  void _reset() {
+    HapticFeedback.heavyImpact();
+    setState(() {
+      _stopwatch.stop();
+      _stopwatch.reset();
+      _timer?.cancel();
+      _laps.clear();
+      _lastLapTotalTime = Duration.zero;
+    });
+  }
+
+  void _addLap() {
+    if (!_stopwatch.isRunning) return;
+    HapticFeedback.lightImpact();
+
+    final currentTotal = _stopwatch.elapsed;
+    final lapDuration = currentTotal - _lastLapTotalTime;
+    _lastLapTotalTime = currentTotal;
+
+    setState(() {
+      _laps.insert(
+        0,
+        LapItem(
+          lapNumber: _laps.length + 1,
+          lapTime: lapDuration,
+          totalTime: currentTotal,
+        ),
+      );
+    });
+  }
+
+  String _formatDuration(Duration duration, {bool showMs = true}) {
+    String twoDigits(int n) => n.toString().padLeft(2, '0');
+    final hours = twoDigits(duration.inHours);
+    final minutes = twoDigits(duration.inMinutes.remainder(60));
+    final seconds = twoDigits(duration.inSeconds.remainder(60));
+    final milliseconds = twoDigits((duration.inMilliseconds.remainder(1000) / 10).floor());
+
+    if (duration.inHours > 0) {
+      return showMs
+          ? '$hours:$minutes:$seconds.$milliseconds'
+          : '$hours:$minutes:$seconds';
+    }
+    return showMs ? '$minutes:$seconds.$milliseconds' : '$minutes:$seconds';
   }
 
   @override
   Widget build(BuildContext context) {
+    final elapsed = _stopwatch.elapsed;
+    final isRunning = _stopwatch.isRunning;
+
+    // Determine fastest and slowest lap indices
+    int? fastestIndex;
+    int? slowestIndex;
+    if (_laps.length > 1) {
+      Duration minDuration = _laps.first.lapTime;
+      Duration maxDuration = _laps.first.lapTime;
+      fastestIndex = 0;
+      slowestIndex = 0;
+
+      for (int i = 0; i < _laps.length; i++) {
+        if (_laps[i].lapTime < minDuration) {
+          minDuration = _laps[i].lapTime;
+          fastestIndex = i;
+        }
+        if (_laps[i].lapTime > maxDuration) {
+          maxDuration = _laps[i].lapTime;
+          slowestIndex = i;
+        }
+      }
+    }
+
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        title: const Row(
+        centerTitle: true,
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.auto_awesome, color: Color(0xFF00E5FF), size: 20),
-            SizedBox(width: 8),
-            Text(
-              'NexaCalc',
+            Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: const Color(0xFF00E5FF).withOpacity(0.15),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.timer_outlined, color: Color(0xFF00E5FF), size: 22),
+            ),
+            const SizedBox(width: 10),
+            const Text(
+              'NexaStopwatch',
               style: TextStyle(
                 fontSize: 20,
-                fontWeight: FontWeight.w600,
+                fontWeight: FontWeight.bold,
                 letterSpacing: 1.2,
+                color: Colors.white,
               ),
             ),
           ],
         ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.history, color: Colors.white70),
-            onPressed: _showHistoryModal,
-          ),
-          const SizedBox(width: 8),
-        ],
       ),
       body: SafeArea(
         child: Column(
           children: [
-            // Display Area
-            Expanded(
-              flex: 2,
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 20),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      reverse: true,
-                      child: Text(
-                        _expression.isEmpty ? ' ' : _expression,
-                        style: TextStyle(
-                          fontSize: 28,
-                          color: _isEvaluated ? Colors.white38 : Colors.white70,
-                          fontWeight: FontWeight.w300,
+            const SizedBox(height: 20),
+
+            // Stopwatch Circular Timer View
+            Center(
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  // Outer Glow Ring
+                  Container(
+                    width: 250,
+                    height: 250,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: SweepGradient(
+                        colors: isRunning
+                            ? [
+                                const Color(0xFF00E5FF),
+                                const Color(0xFF00E5FF).withOpacity(0.1),
+                                const Color(0xFF00E5FF),
+                              ]
+                            : [
+                                Colors.white10,
+                                Colors.white24,
+                                Colors.white10,
+                              ],
+                        transform: GradientRotation(
+                          (elapsed.inMilliseconds % 1000) / 1000 * 2 * 3.14159,
                         ),
                       ),
+                      boxShadow: [
+                        if (isRunning)
+                          BoxShadow(
+                            color: const Color(0xFF00E5FF).withOpacity(0.25),
+                            blurRadius: 30,
+                            spreadRadius: 2,
+                          ),
+                      ],
                     ),
-                    const SizedBox(height: 12),
-                    AnimatedDefaultTextStyle(
-                      duration: const Duration(milliseconds: 150),
-                      style: TextStyle(
-                        fontSize: _isEvaluated ? 56 : 44,
-                        fontWeight: FontWeight.bold,
-                        color: _isEvaluated
-                            ? const Color(0xFF00E5FF)
-                            : Colors.white,
-                      ),
-                      child: SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        reverse: true,
-                        child: Text(_result),
-                      ),
+                  ),
+
+                  // Inner Container
+                  Container(
+                    width: 238,
+                    height: 238,
+                    decoration: const BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Color(0xFF12141C),
                     ),
-                  ],
-                ),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          _formatDuration(elapsed, showMs: false),
+                          style: const TextStyle(
+                            fontSize: 42,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 1.5,
+                            color: Colors.white,
+                            fontFeatures: [FontFeature.tabularFigures()],
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF00E5FF).withOpacity(0.12),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            '.${(elapsed.inMilliseconds.remainder(1000) / 10).floor().toString().padLeft(2, '0')}',
+                            style: const TextStyle(
+                              fontSize: 22,
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFF00E5FF),
+                              fontFeatures: [FontFeature.tabularFigures()],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ),
 
-            // Keypad Area
-            Expanded(
-              flex: 3,
-              child: Container(
-                padding: const EdgeInsets.all(20),
-                decoration: const BoxDecoration(
-                  color: Color(0xFF131520),
-                  borderRadius: BorderRadius.vertical(top: Radius.circular(36)),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black45,
-                      blurRadius: 20,
-                      offset: Offset(0, -5),
+            const SizedBox(height: 36),
+
+            // Controls Section
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 32),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  // Reset Button
+                  _buildActionButton(
+                    icon: Icons.refresh_rounded,
+                    label: 'Reset',
+                    color: Colors.white54,
+                    onPressed: (elapsed.inMilliseconds > 0) ? _reset : null,
+                  ),
+
+                  // Start / Pause Main Button
+                  GestureDetector(
+                    onTap: _toggleStartPause,
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      width: 76,
+                      height: 76,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: isRunning
+                            ? const Color(0xFFFF0055)
+                            : const Color(0xFF00E5FF),
+                        boxShadow: [
+                          BoxShadow(
+                            color: (isRunning
+                                    ? const Color(0xFFFF0055)
+                                    : const Color(0xFF00E5FF))
+                                .withOpacity(0.4),
+                            blurRadius: 20,
+                            offset: const Offset(0, 6),
+                          ),
+                        ],
+                      ),
+                      child: Icon(
+                        isRunning ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                        size: 40,
+                        color: Colors.black,
+                      ),
                     ),
-                  ],
-                ),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: [
-                    _buildButtonRow(['AC', '+/-', '%', '÷']),
-                    _buildButtonRow(['7', '8', '9', '×']),
-                    _buildButtonRow(['4', '5', '6', '-']),
-                    _buildButtonRow(['1', '2', '3', '+']),
-                    _buildButtonRow(['0', '.', '⌫', '=']),
-                  ],
-                ),
+                  ),
+
+                  // Lap Button
+                  _buildActionButton(
+                    icon: Icons.flag_outlined,
+                    label: 'Lap',
+                    color: const Color(0xFF00E5FF),
+                    onPressed: isRunning ? _addLap : null,
+                  ),
+                ],
               ),
+            ),
+
+            const SizedBox(height: 28),
+
+            // Laps List Header
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: const [
+                  Text(
+                    'LAP',
+                    style: TextStyle(
+                      color: Colors.white38,
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1.2,
+                    ),
+                  ),
+                  Text(
+                    'LAP TIME',
+                    style: TextStyle(
+                      color: Colors.white38,
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1.2,
+                    ),
+                  ),
+                  Text(
+                    'TOTAL TIME',
+                    style: TextStyle(
+                      color: Colors.white38,
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1.2,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Divider(color: Colors.white10, height: 1),
+
+            // Laps ListView
+            Expanded(
+              child: _laps.isEmpty
+                  ? Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: const [
+                          Icon(
+                            Icons.timer_off_outlined,
+                            size: 48,
+                            color: Colors.white12,
+                          ),
+                          SizedBox(height: 12),
+                          Text(
+                            'No laps recorded',
+                            style: TextStyle(
+                              color: Colors.white24,
+                              fontSize: 15,
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  : ListView.separated(
+                      physics: const BouncingScrollPhysics(),
+                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+                      itemCount: _laps.length,
+                      separatorBuilder: (_, __) => const Divider(color: Colors.white10, height: 1),
+                      itemBuilder: (context, index) {
+                        final item = _laps[index];
+                        final isFastest = index == fastestIndex;
+                        final isSlowest = index == slowestIndex;
+
+                        Color textColor = Colors.white70;
+                        if (isFastest) textColor = const Color(0xFF00FF66);
+                        if (isSlowest) textColor = const Color(0xFFFF3366);
+
+                        return Container(
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              // Lap Number with tag
+                              Row(
+                                children: [
+                                  Text(
+                                    '#${item.lapNumber.toString().padLeft(2, '0')}',
+                                    style: TextStyle(
+                                      color: textColor,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 15,
+                                    ),
+                                  ),
+                                  if (isFastest) ...[
+                                    const SizedBox(width: 6),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFF00FF66).withOpacity(0.15),
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                      child: const Text(
+                                        'FAST',
+                                        style: TextStyle(
+                                          color: Color(0xFF00FF66),
+                                          fontSize: 9,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                  ] else if (isSlowest) ...[
+                                    const SizedBox(width: 6),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFFF3366).withOpacity(0.15),
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                      child: const Text(
+                                        'SLOW',
+                                        style: TextStyle(
+                                          color: Color(0xFFFF3366),
+                                          fontSize: 9,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
+
+                              // Lap duration
+                              Text(
+                                _formatDuration(item.lapTime),
+                                style: TextStyle(
+                                  color: textColor,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                  fontFeatures: const [FontFeature.tabularFigures()],
+                                ),
+                              ),
+
+                              // Total duration
+                              Text(
+                                _formatDuration(item.totalTime),
+                                style: const TextStyle(
+                                  color: Colors.white38,
+                                  fontSize: 15,
+                                  fontFeatures: [FontFeature.tabularFigures()],
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
             ),
           ],
         ),
@@ -450,82 +489,46 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
     );
   }
 
-  Widget _buildButtonRow(List<String> labels) {
-    return Expanded(
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        children: labels.map((label) {
-          return Expanded(
-            child: Padding(
-              padding: const EdgeInsets.all(6.0),
-              child: _buildCalcButton(label),
-            ),
-          );
-        }).toList(),
-      ),
-    );
-  }
+  Widget _buildActionButton({
+    required IconData icon,
+    required String label,
+    required Color color,
+    required VoidCallback? onPressed,
+  }) {
+    final isEnabled = onPressed != null;
 
-  Widget _buildCalcButton(String label) {
-    bool isOperator = _isOperator(label);
-    bool isEquals = label == '=';
-    bool isAction = label == 'AC' || label == '+/-' || label == '%' || label == '⌫';
-
-    Color bgColor;
-    Color textColor;
-
-    if (isEquals) {
-      bgColor = const Color(0xFFFF3D00);
-      textColor = Colors.white;
-    } else if (isOperator) {
-      bgColor = const Color(0xFF1E2235);
-      textColor = const Color(0xFF00E5FF);
-    } else if (isAction) {
-      bgColor = const Color(0xFF1A1C29);
-      textColor = const Color(0xFFFFAB00);
-    } else {
-      bgColor = const Color(0xFF1E2130);
-      textColor = Colors.white;
-    }
-
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: () => _onButtonPressed(label),
-        borderRadius: BorderRadius.circular(22),
-        splashColor: textColor.withOpacity(0.2),
-        child: Container(
-          decoration: BoxDecoration(
-            color: bgColor,
-            borderRadius: BorderRadius.circular(22),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.25),
-                blurRadius: 8,
-                offset: const Offset(0, 4),
-              ),
-            ],
-            border: Border.all(
-              color: isEquals
-                  ? Colors.transparent
-                  : Colors.white.withOpacity(0.04),
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        IconButton(
+          onPressed: onPressed,
+          iconSize: 28,
+          style: IconButton.styleFrom(
+            backgroundColor: isEnabled
+                ? color.withOpacity(0.12)
+                : Colors.white.withOpacity(0.04),
+            foregroundColor: isEnabled ? color : Colors.white24,
+            padding: const EdgeInsets.all(16),
+            shape: const CircleBorder(),
+            side: BorderSide(
+              color: isEnabled
+                  ? color.withOpacity(0.3)
+                  : Colors.transparent,
               width: 1,
             ),
           ),
-          child: Center(
-            child: Text(
-              label,
-              style: TextStyle(
-                fontSize: 22,
-                fontWeight: isOperator || isEquals || isAction
-                    ? FontWeight.bold
-                    : FontWeight.w500,
-                color: textColor,
-              ),
-            ),
+          icon: Icon(icon),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          label,
+          style: TextStyle(
+            color: isEnabled ? Colors.white70 : Colors.white24,
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
           ),
         ),
-      ),
+      ],
     );
   }
 }
