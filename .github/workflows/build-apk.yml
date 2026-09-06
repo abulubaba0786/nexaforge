@@ -24,15 +24,19 @@ jobs:
         with:
           channel: 'stable'
 
-      - name: Build APK
+      - name: Ensure Android Scaffold & Build APK
         run: |
           cd app
-          flutter pub get || true
-          flutter build apk --debug || echo "App scaffold not yet created"
+          if [ ! -d "android" ]; then
+            echo "Scaffolding missing native platforms..."
+            flutter create . --platforms=android --org=com.nexaforge
+          fi
+          flutter pub get
+          flutter build apk --debug
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: nexaforge-apk
           path: app/build/app/outputs/flutter-apk/*.apk
-          if-no-files-found: ignore
+          if-no-files-found: error
