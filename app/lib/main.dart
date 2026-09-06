@@ -1,721 +1,354 @@
-import 'dart:async';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 void main() {
-  runApp(const NexaForgeOSApp());
+  runApp(const TaskifyApp());
 }
 
-/// Core OS Application Entry
-class NexaForgeOSApp extends StatefulWidget {
-  const NexaForgeOSApp({super.key});
+class TaskifyApp extends StatefulWidget {
+  const TaskifyApp({super.key});
 
   @override
-  State<NexaForgeOSApp> createState() => _NexaForgeOSAppState();
+  State<TaskifyApp> createState() => _TaskifyAppState();
 }
 
-class _NexaForgeOSAppState extends State<NexaForgeOSApp> {
-  ThemeMode _themeMode = ThemeMode.dark;
+class _TaskifyAppState extends State<TaskifyApp> {
+  ThemeMode _themeMode = ThemeMode.system;
 
   void _toggleTheme() {
     setState(() {
-      _themeMode =
-          _themeMode == ThemeMode.dark ? ThemeMode.light : ThemeMode.dark;
+      if (_themeMode == ThemeMode.dark) {
+        _themeMode = ThemeMode.light;
+      } else {
+        _themeMode = ThemeMode.dark;
+      }
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    const primaryCyan = Color(0xFF00E5FF);
-    const darkBg = Color(0xFF0B0F19);
-    const darkSurface = Color(0xFF151C2C);
-    const darkBorder = Color(0xFF1F293D);
-
     return MaterialApp(
-      title: 'NexaForge Base Core OS',
+      title: 'Taskify Workspace',
       debugShowCheckedModeBanner: false,
       themeMode: _themeMode,
       theme: ThemeData(
         useMaterial3: true,
         brightness: Brightness.light,
-        colorSchemeSeed: const Color(0xFF00838F),
-        scaffoldBackgroundColor: const Color(0xFFF1F5F9),
-        cardTheme: CardTheme(
+        colorSchemeSeed: const Color(0xFF6366F1),
+        scaffoldBackgroundColor: const Color(0xFFF8FAFC),
+        cardTheme: const CardThemeData(
           elevation: 0,
           color: Colors.white,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-            side: const BorderSide(color: Color(0xFFE2E8F0)),
-          ),
+          margin: EdgeInsets.zero,
         ),
       ),
       darkTheme: ThemeData(
         useMaterial3: true,
         brightness: Brightness.dark,
-        scaffoldBackgroundColor: darkBg,
-        colorScheme: const ColorScheme.dark(
-          primary: primaryCyan,
-          secondary: Color(0xFF8B5CF6),
-          surface: darkSurface,
-          background: darkBg,
-          onSurface: Color(0xFFF3F4F6),
-        ),
-        cardTheme: CardTheme(
+        colorSchemeSeed: const Color(0xFF818CF8),
+        scaffoldBackgroundColor: const Color(0xFF0F172A),
+        cardTheme: CardThemeData(
           elevation: 0,
-          color: darkSurface,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-            side: const BorderSide(color: darkBorder),
-          ),
-        ),
-        dialogTheme: const DialogTheme(
-          backgroundColor: darkSurface,
-          surfaceTintColor: Colors.transparent,
+          color: const Color(0xFF1E293B),
+          margin: EdgeInsets.zero,
         ),
       ),
-      home: MainOSShell(onToggleTheme: _toggleTheme),
+      home: MainNavigationScreen(
+        onToggleTheme: _toggleTheme,
+        isDarkMode: _themeMode == ThemeMode.dark,
+      ),
     );
   }
 }
 
-// ==========================================
-// MODELS
-// ==========================================
+// Model Classes
+enum TaskPriority { low, medium, high }
 
-class ModuleModel {
+class TaskItem {
+  final String id;
+  String title;
+  String description;
+  String category;
+  DateTime dueDate;
+  TaskPriority priority;
+  bool isCompleted;
+
+  TaskItem({
+    required this.id,
+    required this.title,
+    required this.description,
+    required this.category,
+    required this.dueDate,
+    required this.priority,
+    this.isCompleted = false,
+  });
+}
+
+class ProjectItem {
   final String id;
   final String name;
   final String description;
-  final IconData icon;
-  final String category;
-  final String version;
-  bool isInstalled;
-  bool isEnabled;
+  final double progress;
+  final Color color;
+  final int totalTasks;
+  final int completedTasks;
 
-  ModuleModel({
+  ProjectItem({
     required this.id,
     required this.name,
     required this.description,
-    required this.icon,
-    required this.category,
-    required this.version,
-    this.isInstalled = true,
-    this.isEnabled = true,
+    required this.progress,
+    required this.color,
+    required this.totalTasks,
+    required this.completedTasks,
   });
 }
 
-class ChatMessage {
-  final String id;
-  final String sender; // 'user', 'agent', 'system'
-  final String text;
-  final DateTime timestamp;
-  final List<String>? actionSuggestions;
-
-  ChatMessage({
-    required this.id,
-    required this.sender,
-    required this.text,
-    required this.timestamp,
-    this.actionSuggestions,
-  });
-}
-
-// ==========================================
-// MAIN OS SHELL
-// ==========================================
-
-class MainOSShell extends StatefulWidget {
+// Main Navigation Widget
+class MainNavigationScreen extends StatefulWidget {
   final VoidCallback onToggleTheme;
+  final bool isDarkMode;
 
-  const MainOSShell({super.key, required this.onToggleTheme});
+  const MainNavigationScreen({
+    super.key,
+    required this.onToggleTheme,
+    required this.isDarkMode,
+  });
 
   @override
-  State<MainOSShell> createState() => _MainOSShellState();
+  State<MainNavigationScreen> createState() => _MainNavigationScreenState();
 }
 
-class _MainOSShellState extends State<MainOSShell> {
-  int _currentNavIndex = 0;
-  String _geminiApiKey = '';
-  String _selectedAiModel = 'Gemini 1.5 Pro';
-  bool _isAiOnline = true;
+class _MainNavigationScreenState extends State<MainNavigationScreen> {
+  int _currentIndex = 0;
 
-  // System State Data
-  final List<ModuleModel> _modules = [
-    ModuleModel(
-      id: 'code_editor',
-      name: 'Interactive Code Editor',
-      description: 'Built-in IDE with syntax runner, live logs & line numbers.',
-      icon: Icons.code_rounded,
-      category: 'Developer',
-      version: 'v2.4.0',
-      isInstalled: true,
-      isEnabled: true,
+  final List<TaskItem> _tasks = [
+    TaskItem(
+      id: '1',
+      title: 'Design System Architecture',
+      description: 'Create reusable UI tokens and component guidelines',
+      category: 'Design',
+      dueDate: DateTime.now().add(const Duration(days: 1)),
+      priority: TaskPriority.high,
+      isCompleted: false,
     ),
-    ModuleModel(
-      id: 'python_console',
-      name: 'Python Runtime Console',
-      description: 'Simulated micro-Python execution environment & REPL.',
-      icon: Icons.terminal_rounded,
-      category: 'Developer',
-      version: 'v3.11.2',
-      isInstalled: true,
-      isEnabled: true,
+    TaskItem(
+      id: '2',
+      title: 'Implement CI/CD Build Pipeline',
+      description: 'Ensure automated Android and iOS builds run cleanly',
+      category: 'DevOps',
+      dueDate: DateTime.now().add(const Duration(days: 2)),
+      priority: TaskPriority.high,
+      isCompleted: true,
     ),
-    ModuleModel(
-      id: 'file_manager',
-      name: 'OS File Explorer',
-      description: 'Manage core app assets, project files & local buffers.',
-      icon: Icons.folder_copy_outlined,
-      category: 'System',
-      version: 'v1.0.8',
-      isInstalled: true,
-      isEnabled: false,
+    TaskItem(
+      id: '3',
+      title: 'User Authentication Flow',
+      description: 'Integrate OAuth2 authentication and refreshToken logic',
+      category: 'Development',
+      dueDate: DateTime.now().add(const Duration(days: 3)),
+      priority: TaskPriority.medium,
+      isCompleted: false,
     ),
-    ModuleModel(
-      id: 'network_monitor',
-      name: 'Network Diagnostics',
-      description: 'Real-time bandwidth telemetry & API latency monitor.',
-      icon: Icons.cell_tower_rounded,
-      category: 'Telemetry',
-      version: 'v1.2.0',
-      isInstalled: false,
-      isEnabled: false,
-    ),
-    ModuleModel(
-      id: 'db_studio',
-      name: 'SQLite Database Studio',
-      description: 'Inspect local system tables and run query diagnostics.',
-      icon: Icons.storage_rounded,
-      category: 'Data',
-      version: 'v0.9.5',
-      isInstalled: true,
-      isEnabled: true,
+    TaskItem(
+      id: '4',
+      title: 'Database Migration Script',
+      description: 'Prepare PostgreSQL migration schema for v2 release',
+      category: 'Backend',
+      dueDate: DateTime.now().add(const Duration(days: 5)),
+      priority: TaskPriority.low,
+      isCompleted: false,
     ),
   ];
 
-  late List<ChatMessage> _chatMessages;
+  final List<ProjectItem> _projects = [
+    ProjectItem(
+      id: 'p1',
+      name: 'Mobile App Refactor',
+      description: 'Migrating codebase to Material 3 & Clean Architecture',
+      progress: 0.75,
+      color: const Color(0xFF6366F1),
+      totalTasks: 16,
+      completedTasks: 12,
+    ),
+    ProjectItem(
+      id: 'p2',
+      name: 'E-Commerce Platform',
+      description: 'Building modern shopping portal with payment gateway',
+      progress: 0.40,
+      color: const Color(0xFF10B981),
+      totalTasks: 20,
+      completedTasks: 8,
+    ),
+    ProjectItem(
+      id: 'p3',
+      name: 'Analytics Dashboard',
+      description: 'Data visualizer dashboard for executive reporting',
+      progress: 0.90,
+      color: const Color(0xFFF59E0B),
+      totalTasks: 10,
+      completedTasks: 9,
+    ),
+  ];
 
-  // Code Editor State
-  String _selectedLanguage = 'Dart';
-  final Map<String, TextEditingController> _codeControllers = {};
-  String _consoleOutput = 'System initialized. Ready to execute scripts...\n';
-  bool _isExecutingCode = false;
-
-  @override
-  void initState() {
-    super.initState() {
-      _chatMessages = [
-        ChatMessage(
-          id: '1',
-          sender: 'agent',
-          text:
-              'Welcome to **NexaForge Core OS** v4.2. I am your resident AI Kernel Assistant. How can I help configure your modules or run scripts today?',
-          timestamp: DateTime.now().subtract(const Duration(minutes: 5)),
-          actionSuggestions: [
-            'System Diagnostics',
-            'Run Code Sample',
-            'Install Modules'
-          ],
-        ),
-      ];
-
-      _codeControllers['Dart'] = TextEditingController(
-        text: '''void main() {
-  print("Initializing NexaForge Core Pipeline...");
-  int coreThreads = 8;
-  for (int i = 1; i <= 3; i++) {
-    print("Executing core thread step \$i/\$coreThreads");
-  }
-  print("Operation completed with 0 errors.");
-}''',
-      );
-
-      _codeControllers['Python'] = TextEditingController(
-        text: '''import time
-
-def run_telemetry():
-    print("Fetching system diagnostics...")
-    metrics = {"cpu_load": "18%", "ram_used": "4.2GB"}
-    for key, val in metrics.items():
-        print(f"-> {key}: {val}")
-    print("Telemetry process finish.")
-
-run_telemetry()''',
-      );
-
-      _codeControllers['JavaScript'] = TextEditingController(
-        text: '''const systemStatus = {
-  kernel: "NexaForge OS",
-  uptime: "99.98%",
-  status: "OPTIMAL"
-};
-
-console.log("Kernel Status Check:");
-console.log(JSON.stringify(systemStatus, null, 2));''',
-      );
-    }
-  }
-
-  @override
-  void dispose() {
-    for (var controller in _codeControllers.values) {
-      controller.dispose();
-    }
-    super.dispose();
-  }
-
-  void _addChatMessage(
-      String sender, String text, List<String>? suggestions) {
+  void _addTask(TaskItem newTask) {
     setState(() {
-      _chatMessages.add(
-        ChatMessage(
-          id: DateTime.now().millisecondsSinceEpoch.toString(),
-          sender: sender,
-          text: text,
-          timestamp: DateTime.now(),
-          actionSuggestions: suggestions,
-        ),
-      );
+      _tasks.insert(0, newTask);
     });
   }
 
-  void _processAiCommand(String input) {
-    if (input.trim().isEmpty) return;
-
-    _addChatMessage('user', input, null);
-
-    // AI Response Simulation Logic
-    Timer(const Duration(milliseconds: 600), () {
-      final lower = input.toLowerCase();
-      if (lower.contains('diagnostics') || lower.contains('status')) {
-        final activeCount = _modules.where((m) => m.isEnabled).length;
-        _addChatMessage(
-          'agent',
-          '⚡ **System Health Status**: Optimal\n• Active Modules: $activeCount/${_modules.length}\n• Gemini API Key: ${_geminiApiKey.isEmpty ? "Not Set (Offline Mode)" : "Active"}\n• Core Memory Usage: 34%',
-          ['Open Code Editor', 'Settings'],
-        );
-      } else if (lower.contains('install') || lower.contains('module')) {
-        _addChatMessage(
-          'agent',
-          'Navigating to **Module Manager**. You can toggle core system features or install updates directly.',
-          ['Open Module Manager'],
-        );
-      } else if (lower.contains('code') || lower.contains('run')) {
-        _addChatMessage(
-          'agent',
-          'Opening the **Interactive Code Editor**. You can test Dart, Python, or JS execution pipelines.',
-          ['Execute Current Code'],
-        );
-      } else {
-        _addChatMessage(
-          'agent',
-          'Received command: "$input". Processing request via $_selectedAiModel kernel pipeline... Action simulated successfully.',
-          ['Check System Status', 'Show Code Editor'],
-        );
-      }
-    });
-  }
-
-  void _executeCode() async {
+  void _toggleTaskStatus(String id) {
     setState(() {
-      _isExecutingCode = true;
-      _consoleOutput += '\n[${DateTime.now().toIso8601String().substring(11, 19)}] Compiling & Running $_selectedLanguage script...\n';
-    });
-
-    await Future.delayed(const Duration(milliseconds: 900));
-
-    final code = _codeControllers[_selectedLanguage]?.text ?? '';
-    String simulatedResult = '';
-
-    if (_selectedLanguage == 'Dart') {
-      simulatedResult = 'Initializing NexaForge Core Pipeline...\n'
-          'Executing core thread step 1/8\n'
-          'Executing core thread step 2/8\n'
-          'Executing core thread step 3/8\n'
-          'Operation completed with 0 errors.\nProcess finished with exit code 0.';
-    } else if (_selectedLanguage == 'Python') {
-      simulatedResult = 'Fetching system diagnostics...\n'
-          '-> cpu_load: 18%\n'
-          '-> ram_used: 4.2GB\n'
-          'Telemetry process finish.\nProcess finished with exit code 0.';
-    } else {
-      simulatedResult = 'Kernel Status Check:\n'
-          '{\n  "kernel": "NexaForge OS",\n  "uptime": "99.98%",\n  "status": "OPTIMAL"\n}\nProcess finished with exit code 0.';
-    }
-
-    if (mounted) {
-      setState(() {
-        _isExecutingCode = false;
-        _consoleOutput += simulatedResult + '\n';
-      });
-    }
-  }
-
-  void _toggleModule(String id) {
-    setState(() {
-      final index = _modules.indexWhere((m) => m.id == id);
+      final index = _tasks.indexWhere((task) => task.id == id);
       if (index != -1) {
-        _modules[index].isEnabled = !_modules[index].isEnabled;
+        _tasks[index].isCompleted = !_tasks[index].isCompleted;
       }
     });
   }
 
-  void _installModule(String id) {
+  void _deleteTask(String id) {
     setState(() {
-      final index = _modules.indexWhere((m) => m.id == id);
-      if (index != -1) {
-        _modules[index].isInstalled = true;
-        _modules[index].isEnabled = true;
-      }
+      _tasks.removeWhere((task) => task.id == id);
     });
-  }
-
-  void _showSettingsModal() {
-    final apiKeyController = TextEditingController(text: _geminiApiKey);
-    bool obscureKey = true;
-
-    showDialog(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (context, setDialogState) {
-          return AlertDialog(
-            title: const Row(
-              children: [
-                Icon(Icons.tune_rounded, color: Color(0xFF00E5FF)),
-                SizedBox(width: 10),
-                Text('Kernel Settings'),
-              ],
-            ),
-            content: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Gemini API Key',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                  ),
-                  const SizedBox(height: 6),
-                  TextField(
-                    controller: apiKeyController,
-                    obscureText: obscureKey,
-                    decoration: InputDecoration(
-                      hintText: 'Enter AI Key (e.g. AIzaSy...)',
-                      filled: true,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      suffixIcon: IconButton(
-                        icon: Icon(obscureKey
-                            ? Icons.visibility_outlined
-                            : Icons.visibility_off_outlined),
-                        onPressed: () {
-                          setDialogState(() {
-                            obscureKey = !obscureKey;
-                          });
-                        },
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  const Text(
-                    'AI Model Selector',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                  ),
-                  const SizedBox(height: 6),
-                  DropdownButtonFormField<String>(
-                    value: _selectedAiModel,
-                    decoration: InputDecoration(
-                      filled: true,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    items: ['Gemini 1.5 Pro', 'Gemini Flash 1.5', 'Nexa-Local-7B']
-                        .map((m) => DropdownMenuItem(value: m, child: Text(m)))
-                        .toList(),
-                    onChanged: (val) {
-                      if (val != null) {
-                        setDialogState(() {
-                          _selectedAiModel = val;
-                        });
-                        setState(() {
-                          _selectedAiModel = val;
-                        });
-                      }
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                  SwitchListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: const Text('AI Agent Live Status'),
-                    subtitle: Text(_isAiOnline ? 'Online / Responsive' : 'Offline'),
-                    value: _isAiOnline,
-                    onChanged: (val) {
-                      setDialogState(() {
-                        _isAiOnline = val;
-                      });
-                      setState(() {
-                        _isAiOnline = val;
-                      });
-                    },
-                  ),
-                ],
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx),
-                child: const Text('Cancel'),
-              ),
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF00E5FF),
-                  foregroundColor: Colors.black,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                ),
-                onPressed: () {
-                  setState(() {
-                    _geminiApiKey = apiKeyController.text.trim();
-                  });
-                  Navigator.pop(ctx);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Settings saved successfully!'),
-                      backgroundColor: Color(0xFF10B981),
-                    ),
-                  );
-                },
-                child: const Text('Save Changes',
-                    style: TextStyle(fontWeight: FontWeight.bold)),
-              ),
-            ],
-          );
-        },
-      ),
-    );
   }
 
   @override
   Widget build(BuildContext context) {
-    final isDesktop = MediaQuery.of(context).size.width >= 800;
-
-    final pages = [
-      DashboardView(
-        modules: _modules,
-        apiKeySet: _geminiApiKey.isNotEmpty,
-        aiModel: _selectedAiModel,
-        onNavigate: (index) => setState(() => _currentNavIndex = index),
-        onOpenSettings: _showSettingsModal,
+    final List<Widget> pages = [
+      DashboardTab(
+        tasks: _tasks,
+        projects: _projects,
+        onToggleTask: _toggleTaskStatus,
       ),
-      AiConsoleView(
-        messages: _chatMessages,
-        onSendMessage: _processAiCommand,
-        onActionTriggered: (action) {
-          if (action.contains('Code')) {
-            setState(() => _currentNavIndex = 2);
-          } else if (action.contains('Module')) {
-            setState(() => _currentNavIndex = 3);
-          } else if (action.contains('Settings')) {
-            _showSettingsModal();
-          } else if (action.contains('Execute')) {
-            setState(() => _currentNavIndex = 2);
-            _executeCode();
-          } else {
-            _processAiCommand(action);
-          }
-        },
+      TasksTab(
+        tasks: _tasks,
+        onToggleTask: _toggleTaskStatus,
+        onDeleteTask: _deleteTask,
+        onAddTask: _addTask,
       ),
-      CodeEditorView(
-        selectedLanguage: _selectedLanguage,
-        controllers: _codeControllers,
-        consoleOutput: _consoleOutput,
-        isExecuting: _isExecutingCode,
-        onLanguageChanged: (lang) => setState(() => _selectedLanguage = lang),
-        onRunCode: _executeCode,
-        onClearConsole: () {
-          setState(() {
-            _consoleOutput = 'Console cleared.\n';
-          });
-        },
-      ),
-      ModuleManagerView(
-        modules: _modules,
-        onToggleModule: _toggleModule,
-        onInstallModule: _installModule,
+      ProjectsTab(projects: _projects),
+      AnalyticsTab(tasks: _tasks),
+      SettingsTab(
+        isDarkMode: widget.isDarkMode,
+        onToggleTheme: widget.onToggleTheme,
       ),
     ];
 
     return Scaffold(
-      appBar: AppBar(
-        titleSpacing: isDesktop ? 24 : 16,
-        title: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(6),
-              decoration: BoxDecoration(
-                color: const Color(0xFF00E5FF).withOpacity(0.15),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(
-                  color: const Color(0xFF00E5FF).withOpacity(0.4),
-                ),
-              ),
-              child: const Icon(Icons.memory_rounded,
-                  color: Color(0xFF00E5FF), size: 22),
-            ),
-            const SizedBox(width: 12),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'NexaForge OS',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
-                ),
-                Text(
-                  'Core Kernel v4.2 • ${_isAiOnline ? "AI Active" : "AI Paused"}',
-                  style: const TextStyle(fontSize: 11, color: Colors.grey),
-                ),
-              ],
-            ),
-          ],
+      body: SafeArea(
+        child: IndexedStack(
+          index: _currentIndex,
+          children: pages,
         ),
-        actions: [
-          IconButton(
-            icon: Icon(_geminiApiKey.isEmpty
-                ? Icons.key_off_outlined
-                : Icons.vpn_key_rounded),
-            color: _geminiApiKey.isEmpty ? Colors.amber : const Color(0xFF10B981),
-            tooltip: 'Gemini Key Status',
-            onPressed: _showSettingsModal,
+      ),
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _currentIndex,
+        onDestinationSelected: (int index) {
+          setState(() {
+            _currentIndex = index;
+          });
+        },
+        destinations: const [
+          NavigationDestination(
+            icon: Icon(Icons.dashboard_outlined),
+            selectedIcon: Icon(Icons.dashboard),
+            label: 'Dashboard',
           ),
-          IconButton(
-            icon: const Icon(Icons.settings_outlined),
-            onPressed: _showSettingsModal,
-            tooltip: 'System Settings',
+          NavigationDestination(
+            icon: Icon(Icons.check_circle_outline),
+            selectedIcon: Icon(Icons.check_circle),
+            label: 'Tasks',
           ),
-          IconButton(
-            icon: const Icon(Icons.contrast_rounded),
-            onPressed: widget.onToggleTheme,
-            tooltip: 'Toggle Theme',
+          NavigationDestination(
+            icon: Icon(Icons.folder_outlined),
+            selectedIcon: Icon(Icons.folder),
+            label: 'Projects',
           ),
-          const SizedBox(width: 8),
+          NavigationDestination(
+            icon: Icon(Icons.bar_chart_outlined),
+            selectedIcon: Icon(Icons.bar_chart),
+            label: 'Analytics',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.settings_outlined),
+            selectedIcon: Icon(Icons.settings),
+            label: 'Settings',
+          ),
         ],
       ),
-      body: Row(
-        children: [
-          if (isDesktop) ...[
-            NavigationRail(
-              selectedIndex: _currentNavIndex,
-              onDestinationSelected: (index) {
-                setState(() => _currentNavIndex = index);
-              },
-              labelType: NavigationRailLabelType.all,
-              leading: const Padding(
-                padding: EdgeInsets.symmetric(vertical: 8.0),
-                child: CircleAvatar(
-                  radius: 18,
-                  backgroundColor: Color(0xFF151C2C),
-                  child: Icon(Icons.developer_board, size: 20, color: Color(0xFF00E5FF)),
-                ),
-              ),
-              destinations: const [
-                NavigationRailDestination(
-                  icon: Icon(Icons.dashboard_outlined),
-                  selectedIcon: Icon(Icons.dashboard_rounded),
-                  label: Text('Dashboard'),
-                ),
-                NavigationRailDestination(
-                  icon: Icon(Icons.smart_toy_outlined),
-                  selectedIcon: Icon(Icons.smart_toy_rounded),
-                  label: Text('AI Console'),
-                ),
-                NavigationRailDestination(
-                  icon: Icon(Icons.code_rounded),
-                  selectedIcon: Icon(Icons.code_rounded),
-                  label: Text('Code Editor'),
-                ),
-                NavigationRailDestination(
-                  icon: Icon(Icons.extension_outlined),
-                  selectedIcon: Icon(Icons.extension_rounded),
-                  label: Text('Modules'),
-                ),
-              ],
-            ),
-            const VerticalDivider(thickness: 1, width: 1),
-          ],
-          Expanded(child: pages[_currentNavIndex]),
-        ],
-      ),
-      bottomNavigationBar: !isDesktop
-          ? NavigationBar(
-              selectedIndex: _currentNavIndex,
-              onDestinationSelected: (index) {
-                setState(() => _currentNavIndex = index);
-              },
-              destinations: const [
-                NavigationDestination(
-                  icon: Icon(Icons.dashboard_outlined),
-                  selectedIcon: Icon(Icons.dashboard_rounded),
-                  label: 'OS Core',
-                ),
-                NavigationDestination(
-                  icon: Icon(Icons.smart_toy_outlined),
-                  selectedIcon: Icon(Icons.smart_toy_rounded),
-                  label: 'AI Console',
-                ),
-                NavigationDestination(
-                  icon: Icon(Icons.code_rounded),
-                  selectedIcon: Icon(Icons.code_rounded),
-                  label: 'Editor',
-                ),
-                NavigationDestination(
-                  icon: Icon(Icons.extension_outlined),
-                  selectedIcon: Icon(Icons.extension_rounded),
-                  label: 'Modules',
-                ),
-              ],
-            )
-          : null,
     );
   }
 }
 
-// ==========================================
-// VIEW 1: DASHBOARD
-// ==========================================
+// Dashboard Tab
+class DashboardTab extends StatelessWidget {
+  final List<TaskItem> tasks;
+  final List<ProjectItem> projects;
+  final Function(String) onToggleTask;
 
-class DashboardView extends StatelessWidget {
-  final List<ModuleModel> modules;
-  final bool apiKeySet;
-  final String aiModel;
-  final Function(int) onNavigate;
-  final VoidCallback onOpenSettings;
-
-  const DashboardView({
+  const DashboardTab({
     super.key,
-    required this.modules,
-    required this.apiKeySet,
-    required this.aiModel,
-    required this.onNavigate,
-    required this.onOpenSettings,
+    required this.tasks,
+    required this.projects,
+    required this.onToggleTask,
   });
 
   @override
   Widget build(BuildContext context) {
-    final activeModules = modules.where((m) => m.isEnabled).toList();
+    final completedCount = tasks.where((t) => t.isCompleted).length;
+    final pendingCount = tasks.length - completedCount;
+    final completionRate = tasks.isEmpty ? 0.0 : (completedCount / tasks.length);
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(20.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Banner Banner
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Welcome back,',
+                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                          color: Theme.of(context).colorScheme.outline,
+                        ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Alex Developer',
+                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                  ),
+                ],
+              ),
+              CircleAvatar(
+                radius: 24,
+                backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+                child: Text(
+                  'AD',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Theme.of(context).colorScheme.onPrimaryContainer,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+
+          // Overview Banner
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFF00E5FF), Color(0xFF8B5CF6)],
+              gradient: LinearGradient(
+                colors: [
+                  Theme.of(context).colorScheme.primary,
+                  Theme.of(context).colorScheme.tertiary,
+                ],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
@@ -728,137 +361,180 @@ class DashboardView extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const Text(
-                        'NexaForge OS Dashboard',
+                        'Weekly Productivity',
                         style: TextStyle(
-                          color: Colors.black,
-                          fontSize: 22,
-                          fontWeight: FontWeight.extrabold,
+                          color: Colors.white70,
+                          fontSize: 14,
                         ),
                       ),
-                      const SizedBox(height: 6),
+                      const SizedBox(height: 8),
                       Text(
-                        'AI Model Engine: $aiModel • Key Status: ${apiKeySet ? "CONFIGURED" : "MISSING"}',
-                        style: TextStyle(
-                          color: Colors.black.withOpacity(0.8),
+                        '${(completionRate * 100).toInt()}% Tasks Done',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 22,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        '$pendingCount tasks remaining for this week',
+                        style: const TextStyle(
+                          color: Colors.white90,
                           fontSize: 13,
-                          fontWeight: FontWeight.w600,
                         ),
                       ),
                     ],
                   ),
                 ),
-                ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.black,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
+                SizedBox(
+                  width: 70,
+                  height: 70,
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      CircularProgressIndicator(
+                        value: completionRate,
+                        strokeWidth: 8,
+                        backgroundColor: Colors.white24,
+                        color: Colors.white,
+                      ),
+                      Center(
+                        child: Text(
+                          '${(completionRate * 100).toInt()}%',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                  onPressed: onOpenSettings,
-                  icon: const Icon(Icons.key, size: 18),
-                  label: Text(apiKeySet ? 'Key Active' : 'Set Gemini Key'),
                 ),
               ],
             ),
           ),
           const SizedBox(height: 24),
 
-          // Core System Telemetry Widgets
-          const Text(
-            'System Telemetry',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 12),
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final crossAxisCount = constraints.maxWidth > 700 ? 3 : 1;
-              return GridView.count(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                crossAxisCount: crossAxisCount,
-                crossAxisSpacing: 16,
-                mainAxisSpacing: 16,
-                childAspectRatio: 2.5,
-                children: const [
-                  MetricTile(
-                    title: 'CPU Core Allocation',
-                    value: '18.4 %',
-                    subtext: '8 Cores / Threads Online',
-                    icon: Icons.developer_board,
-                    accentColor: Color(0xFF00E5FF),
-                  ),
-                  MetricTile(
-                    title: 'Memory Usage',
-                    value: '4.2 GB / 16 GB',
-                    subtext: 'Buffer pool optimal',
-                    icon: Icons.memory,
-                    accentColor: Color(0xFF8B5CF6),
-                  ),
-                  MetricTile(
-                    title: 'Kernel Latency',
-                    value: '14 ms',
-                    subtext: 'Direct local IPC link',
-                    icon: Icons.speed,
-                    accentColor: Color(0xFF10B981),
-                  ),
-                ],
-              );
-            },
-          ),
-
-          const SizedBox(height: 28),
-
-          // Active Tools & Direct Shortcuts
+          // Stats Grid
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
-                'Active System Tools',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              Expanded(
+                child: _StatCard(
+                  title: 'Total Tasks',
+                  value: '${tasks.length}',
+                  icon: Icons.task_alt,
+                  color: Colors.blue,
+                ),
               ),
-              TextButton(
-                onPressed: () => onNavigate(3),
-                child: const Text('Manage All Modules'),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _StatCard(
+                  title: 'Completed',
+                  value: '$completedCount',
+                  icon: Icons.check_circle_outline,
+                  color: Colors.green,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _StatCard(
+                  title: 'Pending',
+                  value: '$pendingCount',
+                  icon: Icons.pending_actions,
+                  color: Colors.orange,
+                ),
               ),
             ],
           ),
+          const SizedBox(height: 28),
+
+          // Weekly Activity Chart Section
+          Text(
+            'Activity Overview',
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+          ),
           const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Theme.of(context).cardTheme.color,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: Theme.of(context).dividerColor.withOpacity(0.1),
+              ),
+            ),
+            child: SizedBox(
+              height: 140,
+              child: CustomPaint(
+                painter: ActivityBarChartPainter(
+                  barColor: Theme.of(context).colorScheme.primary,
+                  backgroundColor: Theme.of(context).colorScheme.surfaceVariant,
+                ),
+                child: Container(),
+              ),
+            ),
+          ),
+          const SizedBox(height: 28),
+
+          // Recent Tasks Section
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Recent Tasks',
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+              ),
+              TextButton(
+                onPressed: () {},
+                child: const Text('View All'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
 
           ListView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
-            itemCount: activeModules.length,
+            itemCount: math.min(3, tasks.length),
             itemBuilder: (context, index) {
-              final mod = activeModules[index];
+              final task = tasks[index];
               return Card(
-                margin: const EdgeInsets.only(bottom: 12),
+                margin: const EdgeInsets.only(bottom: 10),
                 child: ListTile(
-                  leading: CircleAvatar(
-                    backgroundColor:
-                        Theme.of(context).colorScheme.primary.withOpacity(0.12),
-                    child: Icon(mod.icon,
-                        color: Theme.of(context).colorScheme.primary),
+                  leading: Checkbox(
+                    value: task.isCompleted,
+                    onChanged: (_) => onToggleTask(task.id),
                   ),
                   title: Text(
-                    mod.name,
-                    style: const TextStyle(fontWeight: FontWeight.bold),
+                    task.title,
+                    style: TextStyle(
+                      decoration: task.isCompleted
+                          ? TextDecoration.lineThrough
+                          : TextDecoration.none,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
-                  subtitle: Text(mod.description),
-                  trailing: ElevatedButton(
-                    onPressed: () {
-                      if (mod.id == 'code_editor') {
-                        onNavigate(2);
-                      } else {
-                        onNavigate(1);
-                      }
-                    },
-                    style: ElevatedButton.styleFrom(
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
+                  subtitle: Text(task.category),
+                  trailing: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: _getPriorityColor(task.priority).withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      task.priority.name.toUpperCase(),
+                      style: TextStyle(
+                        color: _getPriorityColor(task.priority),
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
-                    child: const Text('Launch'),
                   ),
                 ),
               );
@@ -868,62 +544,357 @@ class DashboardView extends StatelessWidget {
       ),
     );
   }
+
+  Color _getPriorityColor(TaskPriority priority) {
+    switch (priority) {
+      case TaskPriority.high:
+        return Colors.red;
+      case TaskPriority.medium:
+        return Colors.orange;
+      case TaskPriority.low:
+        return Colors.green;
+    }
+  }
 }
 
-class MetricTile extends StatelessWidget {
+// Widget for Stat Card
+class _StatCard extends StatelessWidget {
   final String title;
   final String value;
-  final String subtext;
   final IconData icon;
-  final Color accentColor;
+  final Color color;
 
-  const MetricTile({
-    super.key,
+  const _StatCard({
     required this.title,
     required this.value,
-    required this.subtext,
     required this.icon,
-    required this.accentColor,
+    required this.color,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: accentColor.withOpacity(0.15),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(icon, color: accentColor, size: 28),
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardTheme.color,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: Theme.of(context).dividerColor.withOpacity(0.1),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: color, size: 24),
+          const SizedBox(height: 12),
+          Text(
+            value,
+            style: const TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
             ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    title,
-                    style: const TextStyle(fontSize: 12, color: Colors.grey),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            title,
+            style: TextStyle(
+              fontSize: 12,
+              color: Theme.of(context).textTheme.bodySmall?.color,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// Custom Painter for Activity Bar Chart
+class ActivityBarChartPainter extends CustomPainter {
+  final Color barColor;
+  final Color backgroundColor;
+
+  ActivityBarChartPainter({
+    required this.barColor,
+    required this.backgroundColor,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final double barWidth = size.width / 15;
+    final List<double> values = [0.4, 0.7, 0.3, 0.9, 0.6, 0.8, 0.5];
+    final List<String> days = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+
+    final Paint bgPaint = Paint()
+      ..color = backgroundColor
+      ..style = PaintingStyle.fill;
+
+    final Paint barPaint = Paint()
+      ..color = barColor
+      ..style = PaintingStyle.fill;
+
+    final double spacing = (size.width - (barWidth * values.length)) / (values.length + 1);
+
+    for (int i = 0; i < values.length; i++) {
+      final double x = spacing + i * (barWidth + spacing);
+      final double maxBarHeight = size.height - 24;
+
+      // Background Bar
+      final RRect bgRect = RRect.fromRectAndRadius(
+        Rect.fromLTWH(x, 0, barWidth, maxBarHeight),
+        const Radius.circular(6),
+      );
+      canvas.drawRRect(bgRect, bgPaint);
+
+      // Active Bar
+      final double activeHeight = maxBarHeight * values[i];
+      final RRect activeRect = RRect.fromRectAndRadius(
+        Rect.fromLTWH(x, maxBarHeight - activeHeight, barWidth, activeHeight),
+        const Radius.circular(6),
+      );
+      canvas.drawRRect(activeRect, barPaint);
+
+      // Day Label
+      final textPainter = TextPainter(
+        text: TextSpan(
+          text: days[i],
+          style: TextStyle(
+            color: Colors.grey.shade600,
+            fontSize: 11,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        textDirection: TextDirection.ltr,
+      );
+      textPainter.layout();
+      textPainter.paint(
+        canvas,
+        Offset(x + (barWidth - textPainter.width) / 2, size.height - 18),
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+// Tasks Tab
+class TasksTab extends StatefulWidget {
+  final List<TaskItem> tasks;
+  final Function(String) onToggleTask;
+  final Function(String) onDeleteTask;
+  final Function(TaskItem) onAddTask;
+
+  const TasksTab({
+    super.key,
+    required this.tasks,
+    required this.onToggleTask,
+    required this.onDeleteTask,
+    required this.onAddTask,
+  });
+
+  @override
+  State<TasksTab> createState() => _TasksTabState();
+}
+
+class _TasksTabState extends State<TasksTab> {
+  String _selectedFilter = 'All';
+  String _searchQuery = '';
+
+  List<TaskItem> get filteredTasks {
+    return widget.tasks.where((task) {
+      final matchesSearch = task.title.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+          task.category.toLowerCase().contains(_searchQuery.toLowerCase());
+
+      if (_selectedFilter == 'Pending') {
+        return matchesSearch && !task.isCompleted;
+      } else if (_selectedFilter == 'Completed') {
+        return matchesSearch && task.isCompleted;
+      }
+      return matchesSearch;
+    }).toList();
+  }
+
+  void _showAddTaskSheet() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => AddTaskBottomSheet(onAddTask: widget.onAddTask),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _showAddTaskSheet,
+        icon: const Icon(Icons.add),
+        label: const Text('New Task'),
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(20.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Tasks',
+              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.bold,
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    value,
-                    style: const TextStyle(
-                        fontSize: 18, fontWeight: FontWeight.bold),
-                  ),
-                  Text(
-                    subtext,
-                    style: TextStyle(
-                        fontSize: 11, color: accentColor.withOpacity(0.8)),
-                  ),
-                ],
+            ),
+            const SizedBox(height: 16),
+
+            // Search Bar
+            TextField(
+              onChanged: (val) => setState(() => _searchQuery = val),
+              decoration: InputDecoration(
+                hintText: 'Search tasks...',
+                prefixIcon: const Icon(Icons.search),
+                filled: true,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none,
+                ),
               ),
+            ),
+            const SizedBox(height: 16),
+
+            // Filter Chips
+            Row(
+              children: ['All', 'Pending', 'Completed'].map((filter) {
+                final isSelected = _selectedFilter == filter;
+                return Padding(
+                  padding: const EdgeInsets.only(right: 8.0),
+                  child: FilterChip(
+                    selected: isSelected,
+                    label: Text(filter),
+                    onSelected: (bool selected) {
+                      setState(() {
+                        _selectedFilter = filter;
+                      });
+                    },
+                  ),
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 16),
+
+            // Tasks List
+            Expanded(
+              child: filteredTasks.isEmpty
+                  ? Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.assignment_outlined,
+                            size: 64,
+                            color: Colors.grey.shade400,
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            'No tasks found',
+                            style: TextStyle(
+                              color: Colors.grey.shade600,
+                              fontSize: 16,
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  : ListView.builder(
+                      itemCount: filteredTasks.length,
+                      itemBuilder: (context, index) {
+                        final task = filteredTasks[index];
+                        return Dismissible(
+                          key: Key(task.id),
+                          direction: DismissDirection.endToStart,
+                          background: Container(
+                            alignment: Alignment.centerRight,
+                            padding: const EdgeInsets.only(right: 20),
+                            decoration: BoxDecoration(
+                              color: Colors.red.shade400,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: const Icon(Icons.delete, color: Colors.white),
+                          ),
+                          onDismissed: (_) => widget.onDeleteTask(task.id),
+                          child: Card(
+                            margin: const EdgeInsets.only(bottom: 12),
+                            child: Padding(
+                              padding: const EdgeInsets.all(12.0),
+                              child: Row(
+                                children: [
+                                  Checkbox(
+                                    value: task.isCompleted,
+                                    onChanged: (_) => widget.onToggleTask(task.id),
+                                  ),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          task.title,
+                                          style: TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.bold,
+                                            decoration: task.isCompleted
+                                                ? TextDecoration.lineThrough
+                                                : TextDecoration.none,
+                                          ),
+                                        ),
+                                        if (task.description.isNotEmpty) ...[
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            task.description,
+                                            style: TextStyle(
+                                              fontSize: 13,
+                                              color: Theme.of(context)
+                                                  .textTheme
+                                                  .bodySmall
+                                                  ?.color,
+                                            ),
+                                          ),
+                                        ],
+                                        const SizedBox(height: 8),
+                                        Row(
+                                          children: [
+                                            Chip(
+                                              padding: EdgeInsets.zero,
+                                              label: Text(
+                                                task.category,
+                                                style: const TextStyle(fontSize: 11),
+                                              ),
+                                              visualDensity: VisualDensity.compact,
+                                            ),
+                                            const SizedBox(width: 8),
+                                            Icon(
+                                              Icons.calendar_today,
+                                              size: 12,
+                                              color: Colors.grey.shade600,
+                                            ),
+                                            const SizedBox(width: 4),
+                                            Text(
+                                              '${task.dueDate.day}/${task.dueDate.month}/${task.dueDate.year}',
+                                              style: TextStyle(
+                                                fontSize: 11,
+                                                color: Colors.grey.shade600,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
             ),
           ],
         ),
@@ -932,588 +903,472 @@ class MetricTile extends StatelessWidget {
   }
 }
 
-// ==========================================
-// VIEW 2: AI AGENT CONSOLE
-// ==========================================
+// Add Task Bottom Sheet
+class AddTaskBottomSheet extends StatefulWidget {
+  final Function(TaskItem) onAddTask;
 
-class AiConsoleView extends StatefulWidget {
-  final List<ChatMessage> messages;
-  final Function(String) onSendMessage;
-  final Function(String) onActionTriggered;
-
-  const AiConsoleView({
-    super.key,
-    required this.messages,
-    required this.onSendMessage,
-    required this.onActionTriggered,
-  });
+  const AddTaskBottomSheet({super.key, required this.onAddTask});
 
   @override
-  State<AiConsoleView> createState() => _AiConsoleViewState();
+  State<AddTaskBottomSheet> createState() => _AddTaskBottomSheetState();
 }
 
-class _AiConsoleViewState extends State<AiConsoleView> {
-  final TextEditingController _inputController = TextEditingController();
-  final ScrollController _scrollController = ScrollController();
+class _AddTaskBottomSheetState extends State<AddTaskBottomSheet> {
+  final _formKey = GlobalKey<FormState>();
+  final _titleController = TextEditingController();
+  final _descController = TextEditingController();
+  String _category = 'Development';
+  TaskPriority _priority = TaskPriority.medium;
+  DateTime _selectedDate = DateTime.now().add(const Duration(days: 1));
 
-  void _handleSend() {
-    final text = _inputController.text.trim();
-    if (text.isNotEmpty) {
-      widget.onSendMessage(text);
-      _inputController.clear();
-      _scrollToBottom();
-    }
-  }
-
-  void _scrollToBottom() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_scrollController.hasClients) {
-        _scrollController.animateTo(
-          _scrollController.position.maxScrollExtent,
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeOut,
-        );
-      }
-    });
-  }
-
-  @override
+  @override, visualDensity: VisualDensity.compact
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.all(16.0),
-      child: Column(
-        children: [
-          // Console Header Indicator
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: BoxDecoration(
-              color: Theme.of(context).cardTheme.color,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: Theme.of(context).dividerColor.withOpacity(0.2),
-              ),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  width: 10,
-                  height: 10,
-                  decoration: const BoxDecoration(
-                    color: Color(0xFF10B981),
-                    shape: BoxShape.circle,
-                  ),
-                ),
-                const SizedBox(width: 10),
-                const Text(
-                  'Nexa-AI Core Console • Live Prompt Session',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                ),
-                const Spacer(),
-                const Icon(Icons.terminal, size: 18, color: Colors.grey),
-              ],
-            ),
-          ),
-          const SizedBox(height: 12),
-
-          // Messages List
-          Expanded(
-            child: ListView.builder(
-              controller: _scrollController,
-              itemCount: widget.messages.length,
-              itemBuilder: (context, index) {
-                final msg = widget.messages[index];
-                final isUser = msg.sender == 'user';
-
-                return Align(
-                  alignment:
-                      isUser ? Alignment.centerRight : Alignment.centerLeft,
-                  child: Container(
-                    margin: const EdgeInsets.symmetric(vertical: 6),
-                    constraints: BoxConstraints(
-                      maxWidth: MediaQuery.of(context).size.width * 0.75,
-                    ),
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      color: isUser
-                          ? const Color(0xFF00E5FF).withOpacity(0.18)
-                          : Theme.of(context).cardTheme.color,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(
-                        color: isUser
-                            ? const Color(0xFF00E5FF).withOpacity(0.4)
-                            : Theme.of(context).dividerColor.withOpacity(0.2),
-                      ),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              isUser ? Icons.person : Icons.smart_toy_rounded,
-                              size: 14,
-                              color: isUser
-                                  ? const Color(0xFF00E5FF)
-                                  : const Color(0xFF8B5CF6),
-                            ),
-                            const SizedBox(width: 6),
-                            Text(
-                              isUser ? 'USER COMMAND' : 'NEXA KERNEL AI',
-                              style: TextStyle(
-                                fontSize: 10,
-                                fontWeight: FontWeight.bold,
-                                color: isUser
-                                    ? const Color(0xFF00E5FF)
-                                    : const Color(0xFF8B5CF6),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          msg.text,
-                          style: const TextStyle(fontSize: 14, height: 1.4),
-                        ),
-                        if (msg.actionSuggestions != null &&
-                            msg.actionSuggestions!.isNotEmpty) ...[
-                          const SizedBox(height: 12),
-                          Wrap(
-                            spacing: 8,
-                            runSpacing: 6,
-                            children: msg.actionSuggestions!.map((action) {
-                              return ActionChip(
-                                label: Text(action,
-                                    style: const TextStyle(fontSize: 11)),
-                                backgroundColor: const Color(0xFF8B5CF6)
-                                    .withOpacity(0.15),
-                                side: BorderSide(
-                                    color: const Color(0xFF8B5CF6)
-                                        .withOpacity(0.4)),
-                                onPressed: () =>
-                                    widget.onActionTriggered(action),
-                              );
-                            }).toList(),
-                          )
-                        ]
-                      ],
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
-
-          const SizedBox(height: 12),
-
-          // Input Section
-          Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: _inputController,
-                  decoration: InputDecoration(
-                    hintText: 'Type dynamic instructions (e.g., "Run diagnostics")...',
-                    filled: true,
-                    contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 14),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                  ),
-                  onSubmitted: (_) => _handleSend(),
-                ),
-              ),
-              const SizedBox(width: 10),
-              FloatingActionButton(
-                onPressed: _handleSend,
-                backgroundColor: const Color(0xFF00E5FF),
-                foregroundColor: Colors.black,
-                child: const Icon(Icons.send_rounded),
-              ),
-            ],
-          ),
-        ],
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom,
+        left: 20,
+        right: 20,
+        top: 20,
       ),
-    );
-  }
-}
-
-// ==========================================
-// VIEW 3: INTERACTIVE CODE EDITOR
-// ==========================================
-
-class CodeEditorView extends StatelessWidget {
-  final String selectedLanguage;
-  final Map<String, TextEditingController> controllers;
-  final String consoleOutput;
-  final bool isExecuting;
-  final Function(String) onLanguageChanged;
-  final VoidCallback onRunCode;
-  final VoidCallback onClearConsole;
-
-  const CodeEditorView({
-    super.key,
-    required this.selectedLanguage,
-    required this.controllers,
-    required this.consoleOutput,
-    required this.isExecuting,
-    required this.onLanguageChanged,
-    required this.onRunCode,
-    required this.onClearConsole,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final activeController = controllers[selectedLanguage];
-    final linesCount = (activeController?.text.split('\n').length ?? 1);
-
-    return Padding(
-      padding: const EdgeInsets.all(16.0),
-      child: Column(
-        children: [
-          // Editor Top Control Bar
-          Card(
-            margin: EdgeInsets.zero,
-            child: Padding(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-              child: Row(
+      child: Form(
+        key: _formKey,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Create New Task',
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _titleController,
+                decoration: const InputDecoration(
+                  labelText: 'Task Title',
+                  border: OutlineInputBorder(),
+                ),
+                validator: (val) =>
+                    val == null || val.isEmpty ? 'Please enter a title' : null,
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _descController,
+                decoration: const InputDecoration(
+                  labelText: 'Description',
+                  border: OutlineInputBorder(),
+                ),
+                maxLines: 2,
+              ),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<String>(
+                value: _category,
+                decoration: const InputDecoration(
+                  labelText: 'Category',
+                  border: OutlineInputBorder(),
+                ),
+                items: ['Development', 'Design', 'Backend', 'DevOps', 'General']
+                    .map((cat) => DropdownMenuItem(value: cat, child: Text(cat)))
+                    .toList(),
+                onChanged: (val) {
+                  if (val != null) setState(() => _category = val);
+                },
+              ),
+              const SizedBox(height: 12),
+              Row(
                 children: [
-                  const Icon(Icons.code, color: Color(0xFF00E5FF)),
-                  const SizedBox(width: 8),
-                  DropdownButton<String>(
-                    value: selectedLanguage,
-                    underline: const SizedBox(),
-                    items: ['Dart', 'Python', 'JavaScript']
-                        .map((lang) => DropdownMenuItem(
-                              value: lang,
-                              child: Text(
-                                lang,
-                                style: const TextStyle(
-                                    fontWeight: FontWeight.bold),
-                              ),
-                            ))
-                        .toList(),
-                    onChanged: (val) {
-                      if (val != null) onLanguageChanged(val);
+                  const Text('Priority: '),
+                  const SizedBox(width: 12),
+                  SegmentedButton<TaskPriority>(
+                    segments: const [
+                      ButtonSegment(value: TaskPriority.low, label: Text('Low')),
+                      ButtonSegment(value: TaskPriority.medium, label: Text('Med')),
+                      ButtonSegment(value: TaskPriority.high, label: Text('High')),
+                    ],
+                    selected: {_priority},
+                    onSelectionChanged: (Set<TaskPriority> selected) {
+                      setState(() {
+                        _priority = selected.first;
+                      });
                     },
                   ),
-                  const Spacer(),
-                  IconButton(
-                    icon: const Icon(Icons.cleaning_services_outlined),
-                    tooltip: 'Clear Console',
-                    onPressed: onClearConsole,
-                  ),
-                  const SizedBox(width: 8),
-                  ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF10B981),
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                    ),
-                    onPressed: isExecuting ? null : onRunCode,
-                    icon: isExecuting
-                        ? const SizedBox(
-                            width: 14,
-                            height: 14,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
-                            ),
-                          )
-                        : const Icon(Icons.play_arrow_rounded, size: 20),
-                    label: Text(isExecuting ? 'Running...' : 'Run Simulation'),
-                  )
                 ],
               ),
-            ),
-          ),
-          const SizedBox(height: 12),
-
-          // Main Interactive Code Area
-          Expanded(
-            flex: 3,
-            child: Container(
-              decoration: BoxDecoration(
-                color: const Color(0xFF070A12),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: Theme.of(context).dividerColor.withOpacity(0.2),
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    backgroundColor: Theme.of(context).colorScheme.primary,
+                    foregroundColor: Colors.white,
+                  ),
+                  onPressed: () {
+                    if (_formKey.currentState!.validate()) {
+                      final newTask = TaskItem(
+                        id: DateTime.now().millisecondsSinceEpoch.toString(),
+                        title: _titleController.text,
+                        description: _descController.text,
+                        category: _category,
+                        dueDate: _selectedDate,
+                        priority: _priority,
+                      );
+                      widget.onAddTask(newTask);
+                      Navigator.pop(context);
+                    }
+                  },
+                  child: const Text('Add Task'),
                 ),
               ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Line Numbers Column
-                  Container(
-                    width: 44,
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    decoration: const BoxDecoration(
-                      border: Border(
-                        right: BorderSide(color: Color(0xFF1F293D)),
-                      ),
-                    ),
-                    child: ListView.builder(
-                      itemCount: linesCount,
-                      itemBuilder: (context, idx) {
-                        return Text(
-                          '${idx + 1}',
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(
-                            fontFamily: 'monospace',
-                            fontSize: 13,
-                            color: Colors.grey,
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-
-                  // Code Text Input Area
-                  Expanded(
-                    child: TextField(
-                      controller: activeController,
-                      maxLines: null,
-                      expands: true,
-                      style: const TextStyle(
-                        fontFamily: 'monospace',
-                        fontSize: 13.5,
-                        color: Color(0xFF00E5FF),
-                        height: 1.4,
-                      ),
-                      decoration: const InputDecoration(
-                        contentPadding: EdgeInsets.all(12),
-                        border: InputBorder.none,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
+              const SizedBox(height: 20),
+            ],
           ),
-
-          const SizedBox(height: 12),
-
-          // Console / Stdout Drawer Screen
-          Expanded(
-            flex: 2,
-            child: Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: const Color(0xFF0B0F19),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: const Color(0xFF1F293D)),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Row(
-                    children: [
-                      Icon(Icons.terminal_rounded,
-                          size: 16, color: Color(0xFF10B981)),
-                      SizedBox(width: 6),
-                      Text(
-                        'Execution Console Output',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF10B981),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const Divider(color: Color(0xFF1F293D), height: 16),
-                  Expanded(
-                    child: SingleChildScrollView(
-                      child: Text(
-                        consoleOutput,
-                        style: const TextStyle(
-                          fontFamily: 'monospace',
-                          fontSize: 12,
-                          color: Color(0xFFE5E7EB),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
 }
 
-// ==========================================
-// VIEW 4: DYNAMIC MODULE MANAGER
-// ==========================================
+// Projects Tab
+class ProjectsTab extends StatelessWidget {
+  final List<ProjectItem> projects;
 
-class ModuleManagerView extends StatefulWidget {
-  final List<ModuleModel> modules;
-  final Function(String) onToggleModule;
-  final Function(String) onInstallModule;
-
-  const ModuleManagerView({
-    super.key,
-    required this.modules,
-    required this.onToggleModule,
-    required this.onInstallModule,
-  });
-
-  @override
-  State<ModuleManagerView> createState() => _ModuleManagerViewState();
-}
-
-class _ModuleManagerViewState extends State<ModuleManagerView> {
-  String _searchQuery = '';
-  String _selectedCategory = 'All';
+  const ProjectsTab({super.key, required this.projects});
 
   @override
   Widget build(BuildContext context) {
-    final filteredModules = widget.modules.where((mod) {
-      final matchesSearch =
-          mod.name.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-              mod.description.toLowerCase().contains(_searchQuery.toLowerCase());
-      if (_selectedCategory == 'All') return matchesSearch;
-      return matchesSearch && mod.category == _selectedCategory;
-    }).toList();
-
     return Padding(
-      padding: const EdgeInsets.all(16.0),
+      padding: const EdgeInsets.all(20.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Filter & Search Controls
-          TextField(
-            decoration: InputDecoration(
-              hintText: 'Search core modules...',
-              prefixIcon: const Icon(Icons.search),
-              filled: true,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
-            ),
-            onChanged: (val) {
-              setState(() {
-                _searchQuery = val;
-              });
-            },
-          ),
-          const SizedBox(height: 12),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: ['All', 'Developer', 'System', 'Telemetry', 'Data']
-                  .map((cat) {
-                final isSelected = _selectedCategory == cat;
-                return Padding(
-                  padding: const EdgeInsets.only(right: 8.0),
-                  child: FilterChip(
-                    label: Text(cat),
-                    selected: isSelected,
-                    onSelected: (selected) {
-                      if (selected) {
-                        setState(() {
-                          _selectedCategory = cat;
-                        });
-                      }
-                    },
-                  ),
-                );
-              }).toList(),
-            ),
+          Text(
+            'Active Projects',
+            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
           ),
           const SizedBox(height: 16),
-
-          // Modules Grid
           Expanded(
-            child: GridView.builder(
-              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount:
-                    MediaQuery.of(context).size.width > 700 ? 2 : 1,
-                crossAxisSpacing: 12,
-                mainAxisSpacing: 12,
-                childAspectRatio: 2.2,
-              ),
-              itemCount: filteredModules.length,
+            child: ListView.builder(
+              itemCount: projects.length,
               itemBuilder: (context, index) {
-                final mod = filteredModules[index];
+                final project = projects[index];
                 return Card(
+                  margin: const EdgeInsets.only(bottom: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
                   child: Padding(
                     padding: const EdgeInsets.all(16.0),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            CircleAvatar(
-                              backgroundColor: Theme.of(context)
-                                  .colorScheme
-                                  .primary
-                                  .withOpacity(0.15),
-                              child: Icon(mod.icon,
-                                  color: Theme.of(context).colorScheme.primary),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    mod.name,
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 15,
-                                    ),
-                                  ),
-                                  Text(
-                                    '${mod.category} • ${mod.version}',
-                                    style: const TextStyle(
-                                        fontSize: 11, color: Colors.grey),
-                                  ),
-                                ],
+                            Text(
+                              project.name,
+                              style: const TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
                               ),
                             ),
-                            if (mod.isInstalled)
-                              Switch(
-                                value: mod.isEnabled,
-                                onChanged: (_) =>
-                                    widget.onToggleModule(mod.id),
-                              )
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 10, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: project.color.withOpacity(0.15),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Text(
+                                '${(project.progress * 100).toInt()}%',
+                                style: TextStyle(
+                                  color: project.color,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
                           ],
                         ),
-                        const SizedBox(height: 10),
+                        const SizedBox(height: 8),
                         Text(
-                          mod.description,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(fontSize: 12, color: Colors.grey),
+                          project.description,
+                          style: TextStyle(
+                            color: Theme.of(context).textTheme.bodySmall?.color,
+                          ),
                         ),
-                        const Spacer(),
-                        if (!mod.isInstalled)
-                          SizedBox(
-                            width: double.infinity,
-                            child: ElevatedButton.icon(
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFF00E5FF),
-                                foregroundColor: Colors.black,
-                              ),
-                              onPressed: () =>
-                                  widget.onInstallModule(mod.id),
-                              icon: const Icon(Icons.download_rounded, size: 18),
-                              label: const Text('Install Module'),
+                        const SizedBox(height: 16),
+                        LinearProgressIndicator(
+                          value: project.progress,
+                          color: project.color,
+                          backgroundColor: project.color.withOpacity(0.15),
+                          borderRadius: BorderRadius.circular(8),
+                          minHeight: 8,
+                        ),
+                        const SizedBox(height: 12),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              '${project.completedTasks}/${project.totalTasks} Tasks Done',
+                              style: const TextStyle(fontSize: 12),
                             ),
-                          )
+                            const Icon(Icons.arrow_forward_ios, size: 14),
+                          ],
+                        ),
                       ],
                     ),
                   ),
                 );
               },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// Analytics Tab
+class AnalyticsTab extends StatelessWidget {
+  final List<TaskItem> tasks;
+
+  const AnalyticsTab({super.key, required this.tasks});
+
+  @override
+  Widget build(BuildContext context) {
+    final completed = tasks.where((t) => t.isCompleted).length;
+    final pending = tasks.length - completed;
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(20.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Performance Analytics',
+            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+          ),
+          const SizedBox(height: 20),
+
+          // Donut Chart Container
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: Theme.of(context).cardTheme.color,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: Theme.of(context).dividerColor.withOpacity(0.1),
+              ),
+            ),
+            child: Column(
+              children: [
+                const Text(
+                  'Task Breakdown',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 20),
+                SizedBox(
+                  height: 160,
+                  width: 160,
+                  child: CustomPaint(
+                    painter: DonutChartPainter(
+                      completed: completed.toDouble(),
+                      pending: pending.toDouble(),
+                      completedColor: Theme.of(context).colorScheme.primary,
+                      pendingColor: Colors.amber,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    _LegendItem(
+                      color: Theme.of(context).colorScheme.primary,
+                      label: 'Completed ($completed)',
+                    ),
+                    const SizedBox(width: 20),
+                    _LegendItem(
+                      color: Colors.amber,
+                      label: 'Pending ($pending)',
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 20),
+
+          // Efficiency Metrics
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                children: const [
+                  ListTile(
+                    leading: Icon(Icons.speed, color: Colors.indigo),
+                    title: Text('Average Completion Time'),
+                    trailing: Text('1.8 Days', style: TextStyle(fontWeight: FontWeight.bold)),
+                  ),
+                  Divider(),
+                  ListTile(
+                    leading: Icon(Icons.star_outline, color: Colors.orange),
+                    title: Text('Productivity Score'),
+                    trailing: Text('92 / 100', style: TextStyle(fontWeight: FontWeight.bold)),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// Donut Chart Painter
+class DonutChartPainter extends CustomPainter {
+  final double completed;
+  final double pending;
+  final Color completedColor;
+  final Color pendingColor;
+
+  DonutChartPainter({
+    required this.completed,
+    required this.pending,
+    required this.completedColor,
+    required this.pendingColor,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final double total = completed + pending;
+    if (total == 0) return;
+
+    final Offset center = Offset(size.width / 2, size.height / 2);
+    final double radius = math.min(size.width, size.height) / 2;
+    final double strokeWidth = 24.0;
+
+    final Paint paint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = strokeWidth
+      ..strokeCap = StrokeCap.round;
+
+    final double completedAngle = (completed / total) * 2 * math.pi;
+    final double pendingAngle = (pending / total) * 2 * math.pi;
+
+    // Completed Arc
+    paint.color = completedColor;
+    canvas.drawArc(
+      Rect.fromCircle(center: center, radius: radius - strokeWidth / 2),
+      -math.pi / 2,
+      completedAngle,
+      false,
+      paint,
+    );
+
+    // Pending Arc
+    paint.color = pendingColor;
+    canvas.drawArc(
+      Rect.fromCircle(center: center, radius: radius - strokeWidth / 2),
+      -math.pi / 2 + completedAngle,
+      pendingAngle,
+      false,
+      paint,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
+}
+
+class _LegendItem extends StatelessWidget {
+  final Color color;
+  final String label;
+
+  const _LegendItem({required this.color, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Container(
+          width: 12,
+          height: 12,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
+        const SizedBox(width: 6),
+        Text(label, style: const TextStyle(fontSize: 13)),
+      ],
+    );
+  }
+}
+
+// Settings Tab
+class SettingsTab extends StatelessWidget {
+  final bool isDarkMode;
+  final VoidCallback onToggleTheme;
+
+  const SettingsTab({
+    super.key,
+    required this.isDarkMode,
+    required this.onToggleTheme,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(20.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Settings',
+            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+          ),
+          const SizedBox(height: 20),
+          Card(
+            child: Column(
+              children: [
+                SwitchListTile(
+                  title: const Text('Dark Mode'),
+                  subtitle: const Text('Toggle app color theme'),
+                  secondary: const Icon(Icons.brightness_6),
+                  value: isDarkMode,
+                  onChanged: (_) => onToggleTheme(),
+                ),
+                const Divider(height: 1),
+                ListTile(
+                  leading: const Icon(Icons.notifications_outlined),
+                  title: const Text('Notifications'),
+                  subtitle: const Text('Manage push alerts and reminders'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () {},
+                ),
+                const Divider(height: 1),
+                ListTile(
+                  leading: const Icon(Icons.lock_outline),
+                  title: const Text('Privacy & Security'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () {},
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 20),
+          Card(
+            child: ListTile(
+              leading: const Icon(Icons.info_outline),
+              title: const Text('App Version'),
+              subtitle: const Text('v2.4.0 (Build 108)'),
             ),
           ),
         ],
