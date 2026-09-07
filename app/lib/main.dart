@@ -1,3 +1,4 @@
+// NexaForge Autonomous Agent Active
 import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
@@ -57,7 +58,7 @@ class _NexaForgeAppState extends State<NexaForgeApp> {
           onSurface: const Color(0xFFF3F4F6),
           error: const Color(0xFFEF4444),
         ),
-        cardTheme: CardTheme(
+        cardTheme: CardThemeData(
           color: const Color(0xFF111827),
           elevation: 0,
           shape: RoundedRectangleBorder(
@@ -487,7 +488,7 @@ class _CoreOSDashboardScreenState extends State<CoreOSDashboardScreen>
                     'NEXA',
                     style: TextStyle(
                       fontSize: 16,
-                      fontWeight: FontWeight.black,
+                      fontWeight: FontWeight.w900,
                       letterSpacing: 1.5,
                       color: widget.accentColor,
                     ),
@@ -534,7 +535,7 @@ class _CoreOSDashboardScreenState extends State<CoreOSDashboardScreen>
             _buildQuickHeaderChip(
               icon: Icons.thermostat_rounded,
               label: '${_tempC.toStringAsFixed(1)}°C',
-              color: _tempC > 75 ? Colors.red : Colors.emeraldAccent,
+              color: _tempC > 75 ? Colors.red : const Color(0xFF10B981),
             ),
             const SizedBox(width: 10),
             _buildQuickHeaderChip(
@@ -1050,7 +1051,7 @@ class _CoreOSDashboardScreenState extends State<CoreOSDashboardScreen>
             ),
             const SizedBox(height: 16),
             SwitchListTile(
-              padding: EdgeInsets.zero,
+              contentPadding: EdgeInsets.zero,
               value: widget.isHighPerformance,
               activeColor: widget.accentColor,
               title: const Text('Performance Mode', style: TextStyle(fontSize: 13)),
@@ -1060,7 +1061,7 @@ class _CoreOSDashboardScreenState extends State<CoreOSDashboardScreen>
             ),
             const Divider(color: Color(0xFF1F2937)),
             ListTile(
-              padding: EdgeInsets.zero,
+              contentPadding: EdgeInsets.zero,
               contentPadding: EdgeInsets.zero,
               leading: Container(
                 padding: const EdgeInsets.all(8),
@@ -1074,12 +1075,12 @@ class _CoreOSDashboardScreenState extends State<CoreOSDashboardScreen>
               trailing: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                  color: Colors.emerald.withOpacity(0.2),
+                  color: const Color(0xFF059669).withOpacity(0.2),
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.emerald.withOpacity(0.4)),
+                  border: Border.all(color: const Color(0xFF059669).withOpacity(0.4)),
                 ),
                 child: const Text('ACTIVE',
-                    style: TextStyle(fontSize: 10, color: Colors.emeraldAccent, fontWeight: FontWeight.bold)),
+                    style: TextStyle(fontSize: 10, color: const Color(0xFF10B981), fontWeight: FontWeight.bold)),
               ),
             ),
             const SizedBox(height: 8),
@@ -1149,9 +1150,9 @@ class _CoreOSDashboardScreenState extends State<CoreOSDashboardScreen>
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
-                children: _terminalLogs.takeLast(4).map((log) {
+                children: _terminalLogs.reversed.take(4).toList().reversed.map((log) {
                   Color lvlColor = Colors.white70;
-                  if (log.level == 'SUCCESS') lvlColor = Colors.emeraldAccent;
+                  if (log.level == 'SUCCESS') lvlColor = const Color(0xFF10B981);
                   if (log.level == 'WARN') lvlColor = Colors.amberAccent;
                   if (log.level == 'ERROR') lvlColor = Colors.redAccent;
                   if (log.level == 'EXEC') lvlColor = widget.accentColor;
@@ -1234,7 +1235,7 @@ class _CoreOSDashboardScreenState extends State<CoreOSDashboardScreen>
                 separatorBuilder: (ctx, i) => const Divider(color: Color(0xFF1F2937), height: 1),
                 itemBuilder: (ctx, idx) {
                   final proc = _processes[idx];
-                  Color statusColor = Colors.emeraldAccent;
+                  Color statusColor = const Color(0xFF10B981);
                   if (proc.status == ProcessStatus.highLoad) statusColor = Colors.amberAccent;
                   if (proc.status == ProcessStatus.suspended) statusColor = Colors.white38;
 
@@ -1359,13 +1360,13 @@ class _CoreOSDashboardScreenState extends State<CoreOSDashboardScreen>
                 child: Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: Colors.emerald.withOpacity(0.12),
+                    color: const Color(0xFF059669).withOpacity(0.12),
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: Colors.emerald.withOpacity(0.3)),
+                    border: Border.all(color: const Color(0xFF059669).withOpacity(0.3)),
                   ),
                   child: const Row(
                     children: [
-                      Icon(Icons.shield_rounded, color: Colors.emeraldAccent, size: 28),
+                      Icon(Icons.shield_rounded, color: const Color(0xFF10B981), size: 28),
                       SizedBox(width: 12),
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1374,7 +1375,7 @@ class _CoreOSDashboardScreenState extends State<CoreOSDashboardScreen>
                               style: TextStyle(
                                   fontSize: 11,
                                   fontWeight: FontWeight.bold,
-                                  color: Colors.emeraldAccent)),
+                                  color: const Color(0xFF10B981))),
                           SizedBox(height: 2),
                           Text('PROTECTION ACTIVE',
                               style: TextStyle(
@@ -1565,7 +1566,7 @@ class _CoreOSDashboardScreenState extends State<CoreOSDashboardScreen>
                                     style: const TextStyle(
                                         fontSize: 11,
                                         fontWeight: FontWeight.bold,
-                                        color: Colors.emeraldAccent)),
+                                        color: const Color(0xFF10B981))),
                               ],
                             ),
                             const SizedBox(height: 6),
@@ -1576,7 +1577,7 @@ class _CoreOSDashboardScreenState extends State<CoreOSDashboardScreen>
                                 minHeight: 6,
                                 backgroundColor: const Color(0xFF1F2937),
                                 valueColor:
-                                    const AlwaysStoppedAnimation<Color>(Colors.emeraldAccent),
+                                    const AlwaysStoppedAnimation<Color>(const Color(0xFF10B981)),
                               ),
                             ),
                           ],
@@ -1592,13 +1593,13 @@ class _CoreOSDashboardScreenState extends State<CoreOSDashboardScreen>
                                   width: 8,
                                   height: 8,
                                   decoration: const BoxDecoration(
-                                      color: Colors.emeraldAccent, shape: BoxShape.circle),
+                                      color: const Color(0xFF10B981), shape: BoxShape.circle),
                                 ),
                                 const SizedBox(width: 6),
                                 const Text('ONLINE',
                                     style: TextStyle(
                                         fontSize: 10,
-                                        color: Colors.emeraldAccent,
+                                        color: const Color(0xFF10B981),
                                         fontWeight: FontWeight.bold)),
                               ],
                             ),
@@ -1653,7 +1654,7 @@ class _CoreOSDashboardScreenState extends State<CoreOSDashboardScreen>
                       itemBuilder: (ctx, idx) {
                         final log = _terminalLogs[idx];
                         Color col = Colors.white70;
-                        if (log.level == 'SUCCESS') col = Colors.emeraldAccent;
+                        if (log.level == 'SUCCESS') col = const Color(0xFF10B981);
                         if (log.level == 'WARN') col = Colors.amberAccent;
                         if (log.level == 'ERROR') col = Colors.redAccent;
                         if (log.level == 'EXEC') col = widget.accentColor;
@@ -1675,7 +1676,7 @@ class _CoreOSDashboardScreenState extends State<CoreOSDashboardScreen>
                   const Divider(color: Color(0xFF1F2937)),
                   Row(
                     children: [
-                      Text('nexa@core-os:~$ ',
+                      Text('nexa@core-os:\$ ',
                           style: TextStyle(
                               color: widget.accentColor,
                               fontWeight: FontWeight.bold,
@@ -1747,9 +1748,15 @@ class _DiagnosticDialogState extends State<_DiagnosticDialog> {
       if (!mounted) return;
       setState(() {
         _progress = i / 100.0;
-        if (i == 30) _statusMessage = 'Checking Neural Core Latency...';
-        if (i == 60) _statusMessage = 'Validating Cryptographic Signatures...';
-        if (i == 90) _statusMessage = 'Finalizing System Integrity Report...';
+        if (i == 30) {
+          _statusMessage = 'Checking Neural Core Latency...';
+        }
+        if (i == 60) {
+          _statusMessage = 'Validating Cryptographic Signatures...';
+        }
+        if (i == 90) {
+          _statusMessage = 'Finalizing System Integrity Report...';
+        }
       });
     }
     if (!mounted) return;
@@ -1795,14 +1802,14 @@ class _DiagnosticDialogState extends State<_DiagnosticDialog> {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Colors.emerald.withOpacity(0.12),
+                color: const Color(0xFF059669).withOpacity(0.12),
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: Colors.emerald.withOpacity(0.3)),
+                border: Border.all(color: const Color(0xFF059669).withOpacity(0.3)),
               ),
               child: Row(
                 children: [
                   const Icon(Icons.check_circle_outline_rounded,
-                      color: Colors.emeraldAccent, size: 20),
+                      color: const Color(0xFF10B981), size: 20),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
