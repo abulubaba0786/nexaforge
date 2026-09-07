@@ -1062,7 +1062,6 @@ class _CoreOSDashboardScreenState extends State<CoreOSDashboardScreen>
             const Divider(color: Color(0xFF1F2937)),
             ListTile(
               contentPadding: EdgeInsets.zero,
-              contentPadding: EdgeInsets.zero,
               leading: Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
